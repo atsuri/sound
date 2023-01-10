@@ -14,9 +14,12 @@ class Sound
             puts "ファイルがありません。"
         end
         for i in 0...@formula.length do
-            scanner = StringScanner.new(@formula[i].chomp)
-            @scan = scanner.scan(/(\d+|[\+\-\*\/()=]|[a-zA-Z]+)*/)
-            @token = []
+            @scanner = StringScanner.new(@formula[i].chomp)
+            #ここをget_tokenでやる
+            @scan = @scanner.scan(/(\d+|[\+\-\*\/()=]|[a-zA-Z]+)*/)
+            # if ret = @scanner.scan(数字) then
+            # return ret
+            #みたいにget_tokenで書く
             @keywords = {
                 '+' => :add,
                 '-' => :sub,
@@ -32,9 +35,9 @@ class Sound
             }
 
             # 計算式
-            # p eval(expression) #結果を出力
+            p eval(expression) #結果を出力
 
-            p sentences()
+            # p sentences()
         end
 
     end
@@ -48,6 +51,7 @@ class Sound
             token = get_token()
         end
         # unget_token(token)
+        unget_token()
         p "expression"
         p result
         return result
@@ -62,6 +66,7 @@ class Sound
             token = get_token()
         end
         # unget_token(token)
+        unget_token()
 
         return result
     end
@@ -114,7 +119,16 @@ class Sound
         @scan = @scan[1..-1]
         # puts token
         # puts @scan
+        @scan = @scanner.scan(/(\d+|[\+\-\*\/()=]|[a-zA-Z]+)*/)
 
+        if scan = @scanner.scan(/(\d+|[\+\-\*\/()=]|[a-zA-Z]+)*/) then #数値だったら
+            return scan
+        elsif scan = @scanner.scan(/(\d+|[\+\-\*\/()=]|[a-zA-Z]+)*/) then #英数字だったら
+            return scan
+        elsif scan = @scanner.scan(/(\d+|[\+\-\*\/()=]|[a-zA-Z]+)*/) then # 符号だったら
+            return scan
+        end
+        
         case token
         when /[\+\-\*\/()=]/ # 符号の場合
             p token
@@ -157,12 +171,13 @@ class Sound
     end
 
     # tokenを受け取り、ソースコードの先頭にそれを押し戻す。
-    def unget_token(token)
-        if token
-            p "アンゲットトークン"
-            p token
-            result.unshift(token)
-        end
+    def unget_token()
+        # if token
+        #     p "アンゲットトークン"
+        #     p token
+        #     # @scan.unshift(token)
+            @scan.unscan
+        # end
     end
 
     # 文列
