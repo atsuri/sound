@@ -1,40 +1,27 @@
 require 'strscan'
 class Sound
     def initialize
-        begin
-            @formula = []
-            file = ARGV[0]
-            File.open(file){|f|
-                f.each_line{|line|
-                  @formula << line
-                }
-              }
-            # puts @formula
-        rescue
-            puts "ファイルがありません。"
-        end
-        for i in 0...@formula.length do
-            @scanner = StringScanner.new(@formula[i].chomp)
-            @keywords = {
-                '+' => :add,
-                '-' => :sub,
-                '*' => :mul,
-                '/' => :div,
-                '(' => :left_parn,
-                ')' => :right_parn,
-                '=' => :equal,
-                'para' => :para,
-                'keepon' => :keepon,
-                'visu' => :visu,
-                'get' => :get
-            }
-
-            # 計算式
-            # p eval(expression) #結果を出力
-
-            p sentences()
+        unless file = ARGV[0]
+            raise Exception, "ファイルがありません。"
         end
 
+        @keywords = {
+            '+' => :add,
+            '-' => :sub,
+            '*' => :mul,
+            '/' => :div,
+            '(' => :left_parn,
+            ')' => :right_parn,
+            '=' => :equal,
+            'para' => :para,
+            'keepon' => :keepon,
+            'visu' => :visu,
+            'get' => :get
+        }
+
+        read = File.read(file)
+        @scanner = StringScanner.new(read)
+        p sentences() # Sound
     end
 
     def expression()
@@ -116,6 +103,10 @@ class Sound
         elsif scan = @scanner.scan(/\A[a-zA-Z]+/) then #英字だったら（変数名）
             p "変数：#{scan}"
             return scan
+        elsif scan = @scanner.scan(/\s/) then #改行文字
+            scan = get_token()
+            p "改行の次：#{scan}"
+            return scan
         end
     end
 
@@ -193,7 +184,7 @@ class Sound
             return nil
         end
         result = [:get]
-        get = gets
+        get = STDIN.gets
         unless get
             rails Exception, "入力がない"
         end
