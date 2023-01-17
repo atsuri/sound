@@ -15,11 +15,6 @@ class Sound
         end
         for i in 0...@formula.length do
             @scanner = StringScanner.new(@formula[i].chomp)
-            #ここをget_tokenでやる
-            @scan = @scanner.scan(/(\d+|[\+\-\*\/()=]|[a-zA-Z]+)*/)
-            # if ret = @scanner.scan(数字) then
-            # return ret
-            #みたいにget_tokenで書く
             @keywords = {
                 '+' => :add,
                 '-' => :sub,
@@ -27,17 +22,17 @@ class Sound
                 '/' => :div,
                 '(' => :left_parn,
                 ')' => :right_parn,
-                'if' => :if,
-                'keepon' => :for,
-                'visu' => :print,
-                'get' => :gets,
-                '=' => :assignment
+                '=' => :equal,
+                'para' => :para,
+                'keepon' => :keepon,
+                'visu' => :visu,
+                'get' => :get
             }
 
             # 計算式
-            p eval(expression) #結果を出力
+            # p eval(expression) #結果を出力
 
-            # p sentences()
+            p sentences()
         end
 
     end
@@ -50,10 +45,8 @@ class Sound
             p result
             token = get_token()
         end
-        # unget_token(token)
+
         unget_token()
-        p "expression"
-        p result
         return result
     end
 
@@ -65,19 +58,18 @@ class Sound
             p result
             token = get_token()
         end
-        # unget_token(token)
-        unget_token()
 
+        unget_token()
         return result
     end
 
     def factor()
-        token = get_token
+        token = get_token()
         if token.is_a?(Numeric) # 数字だったら
             result = token
         elsif token == :left_parn #（ だったら
             result = expression()
-            token = get_token # 閉じカッコを取り除く(使用しない)
+            token = get_token() # 閉じカッコを取り除く(使用しない)
             if token != :right_parn # ) なかったら
                 raise Exception, "構文エラー"
             else
@@ -115,69 +107,23 @@ class Sound
 
     # ソースコードの先頭から、次のtokenを一つ切り出して返す。
     def get_token()
-        token = @scan[0]
-        @scan = @scan[1..-1]
-        # puts token
-        # puts @scan
-        @scan = @scanner.scan(/(\d+|[\+\-\*\/()=]|[a-zA-Z]+)*/)
-
-        if scan = @scanner.scan(/(\d+|[\+\-\*\/()=]|[a-zA-Z]+)*/) then #数値だったら
+        if scan = @scanner.scan(/\A*([0-9.]+)/) then #数値だったら
+            p "数値：#{scan}"
+            return scan.to_f
+        elsif scan = @scanner.scan(/\A*(#{@keywords.keys.map{|t| Regexp.escape(t)}.join('|')})/) then # 予約語だったら
+            p "予約語：#{@keywords[scan]}"
+            return @keywords[scan]
+        elsif scan = @scanner.scan(/\A[a-zA-Z]+/) then #英字だったら（変数名）
+            p "変数：#{scan}"
             return scan
-        elsif scan = @scanner.scan(/(\d+|[\+\-\*\/()=]|[a-zA-Z]+)*/) then #英数字だったら
-            return scan
-        elsif scan = @scanner.scan(/(\d+|[\+\-\*\/()=]|[a-zA-Z]+)*/) then # 符号だったら
-            return scan
-        end
-        
-        case token
-        when /[\+\-\*\/()=]/ # 符号の場合
-            p token
-            return @keywords[token]
-
-        when /\d/ # 数字の場合
-            @num = []
-            @num << token.to_i
-            loop do
-                case @scan[0]
-                when /\d/ # 数字だったら
-                    token = @scan[0]
-                    @scan = @scan[1..-1]
-                    @num << token.to_i
-                else
-                    @num = @num.join
-                    p @num
-                    break
-                end
-            end
-            return @num
-
-        when /[a-zA-Z]/ # アルファベット（if, visu, keepon, get,..）の場合
-            @alphabet = []
-            @alphabet << token
-            loop do
-                case @scan[0]
-                when /[a-zA-Z]/ # アルファベットだったら
-                    token = @scan[0]
-                    @scan = @scan[1..-1]
-                    @alphabet << token
-                else
-                    @alphabet = @alphabet.join
-                    p @alphabet
-                    break
-                end
-            end
-            return @alphabet
         end
     end
 
     # tokenを受け取り、ソースコードの先頭にそれを押し戻す。
     def unget_token()
-        # if token
-        #     p "アンゲットトークン"
-        #     p token
-        #     # @scan.unshift(token)
-            @scan.unscan
-        # end
+        if !(@scanner.eos?)
+            @scanner.unscan
+        end
     end
 
     # 文列
@@ -194,55 +140,68 @@ class Sound
     end
 
     def sentence()
-        # 代入文、if文、while文、print文、sentences()?
-        token = get_token()
-        if token == :left_parn #（ だったら
-            result = sentences()
-            token = get_token # 閉じカッコを取り除く(使用しない)
-            if token != :right_parn then# ) なかったら
-                raise Exception, "構文エラー" 
-            end
+        # 代入文、if文、while文、print文
+        # elsif token = para()
+        #     return token
+        # elsif token = keepon()
+        #     return token
+        if token = visu()
+            return token
+        elsif token = get()
+            return token
+        elsif token = assignment()
+            return token
         end
-
-        # if文
-        if token == :if then
-
-        # for文
-        elsif token == :keepon then
-
-        # print文
-        elsif token == :visu then
-
-        # 入力
-        elsif token == :get then
-
-        # 代入文
-        else
-            result = get_token()
-            if result == :assignment then
-                # result = [result, [:variable, token], [:integer, "eval(expression)ができないunget_token.."]]
-                # result = [result, [:variable, token], [:integer, eval(expression())]]
-                result = [result, [:variable, token], [:integer, 1]]
-                # eval(expression()もできないけど、eval(expression()で呼び出したいtokenがどこかで呼び出されちゃってる
-            end
-        end
-        return result
     end
 
+    def assignment()
+        result = [:assignment]
+        token = get_token()
+        unless token.instance_of?(String)
+            unget_token()
+            return nil
+        end
 
-    
-    # 入力
-    def _get()
-        return gets
+        result << [:variable, token]
+        unless get_token() == :equal
+            raise Exception, "イコールがない"
+        end
+        unless token = expression()
+            raise Exception, "式がない"
+        end
+        result << token
     end
 
     # 出力
-    def _visu(formula)
-        puts formula
+    def visu()
+        unless get_token() == :visu
+            unget_token()
+            return nil
+        end
+        result = [:visu]
+        # 変数もできるように改良する。
+        unless token = eval(expression())
+            raise Exception, "式がない"
+        end
+        result << token
+    end
+    
+    # 入力
+    def get()
+        unless get_token() == :get
+            unget_token()
+            return nil
+        end
+        result = [:get]
+        get = gets
+        unless get
+            rails Exception, "入力がない"
+        end
+        result << get
     end
 
     # for文
-    def _keepon(formula, sentence)
+    def keepon(formula, sentence)
         n = formula # n回繰り返す
         sentence # 繰り返したい式
         for i in 0..n.to_i do
@@ -252,8 +211,16 @@ class Sound
     end
 
     # if文
-    def _if(first, second)
-        p "if文"
+    def para()
+        unless get_token() == :para
+            unget_token()
+            return nil
+        end
+        result = [:para]
+        unless token = get_token()
+            raise Exception, "値がない"
+        end
+        result << token
     end
 end
 
