@@ -37,10 +37,8 @@ class Sound
         token = get_token()
         while token == :add or token == :sub
             result = [token, result, term()]
-            p result
             token = get_token()
         end
-
         unget_token()
         return result
     end
@@ -154,12 +152,12 @@ class Sound
         # 代入文、if文、while文、print文
         if token = para()
             return token
-        # elsif token = keepon()
-        #     return token
+        elsif token = keepon()
+            return token
         elsif token = visu()
             return token
-        # elsif token = get()
-        #     return token
+        elsif token = get()
+            return token
         elsif token = assignment()
             return token
         end
@@ -181,6 +179,7 @@ class Sound
             raise Exception, "式がない"
         end
         result << token
+        return result
     end
 
     # 出力
@@ -190,13 +189,13 @@ class Sound
             return nil
         end
         result = [:visu]
-        
+
         token = get_token()
         if token.instance_of?(String)
             result << [:variable, token]
         elsif token.instance_of?(Float)
             unget_token()
-            unless token = eval(expression())
+            unless token = expression()
                 raise Exception, "visu_式がない"
             end
             result << token
@@ -204,7 +203,7 @@ class Sound
             raise Exception, "visu_変数または数値がない"
         end
 
-        result
+        return result
     end
     
     # 入力
@@ -214,21 +213,51 @@ class Sound
             return nil
         end
         result = [:get]
-        get = STDIN.gets
-        unless get
-            rails Exception, "get_入力がない"
+        unless get = get_token()
+            raise Exception, "get_入力がない、または、英数字でない"
+            # 変数は英字のみだが、「a1」「aa1a」のようなものだと「a」「aa」と判断される。エラー実装できていない。
         end
         result << get
+        return result
     end
 
     # for文
-    def keepon(formula, sentence)
-        n = formula # n回繰り返す
-        sentence # 繰り返したい式
-        for i in 0..n.to_i do
-            sentence
-            # これじゃできなさそう。。
+    def keepon
+        # for
+        unless get_token() == :keepon
+            unget_token()
+            return nil
         end
+        result = [:keepon]
+
+        # 条件式
+        unless token = conditions()
+            raise Exception, "keepon_条件式がない"
+        end
+        result << token
+
+        # do
+        unless get_token() == :open
+            raise Exception, "keepon_openがない"
+        end
+
+        # 式を取り出す
+        unless token = sentence()
+            raise Exception, "keepon_文がない"
+        end
+        result << token
+        # 二文以上あった時
+        while token = sentence() do
+            result << token
+        end
+
+        # end
+        unless get_token() == :close
+            raise Exception, "keepon_closeがない"
+            # closeの後に改行するか、別の文が続かないとエラーになってしまう。
+        end
+
+        return result
     end
 
     # if文
@@ -283,7 +312,8 @@ class Sound
             # closeの後に改行するか、別の文が続かないとエラーになってしまう。
         end
         
-        result + [result2]
+        result = result + [result2]
+        return result
     end
 
     def conditions()
@@ -296,16 +326,23 @@ class Sound
 
         token = get_token()
         case token
-        when :equal, :small, :big
+        when :small, :big
             token2 = get_token()
             if token2 == :equal then
-                token = :d_equal if token == :equal
                 token = :b_equal if token == :big
                 token = :s_equal if token == :small
                 result << [:operator, token]
             else
                 unget_token()
                 result << [:operator, token]
+            end
+        when :equal
+            token2 = get_token()
+            if token2 == :equal then
+                token = :d_equal
+                result << [:operator, token]
+            else
+                raise Exception, "conditions_「=」→「==」にする"
             end
         else
             raise Exception, "conditions_演算子がない"
@@ -316,7 +353,7 @@ class Sound
             result << [:variable, token]
         elsif token.instance_of?(Float)
             unget_token()
-            unless token = eval(expression())
+            unless token = expression()
                 raise Exception, "conditions_式がない"
             end
             result << token
@@ -324,7 +361,7 @@ class Sound
             raise Exception, "conditions_変数または数値がない"
         end
 
-        result
+        return result
     end
 end
 
