@@ -8,9 +8,9 @@ NE20-1094D 木藤あつり
 
 ## 構文ルール
 - 文列 = 文（文）*
-- 文 = 代入文 | if文 | keepon文 | visu文 | ‘{‘ 文列 ‘}’
+- 文 = 代入文 | para文 | keepon文 | visu文 | ‘{‘ 文列 ‘}’
 - 代入文 = 変数 ‘=’ 式
-- if文 = ‘if’ 式 ‘then’ 文 ‘else’ 文
+- para文 = ‘para’ 式 ‘open’ 文 ‘real’ 文 'close'
 - keepon文 = ‘keepon’ 式 文
 - visu文 = ‘visu’ 文
 - 式 = /* calcの式に準ずる */
