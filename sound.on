@@ -1,5 +1,4 @@
-para a>=1 open
+para i==true open
+a=1+1
 visu a
-real
-visu 2
 close

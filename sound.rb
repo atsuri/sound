@@ -1,10 +1,11 @@
 require 'strscan'
 class Sound
     def initialize
-        unless file = ARGV[0]
+        unless @file = ARGV[0]
             raise Exception, "ファイルがありません。"
         end
 
+        # 予約後
         @keywords = {
             '+' => :add,
             '-' => :sub,
@@ -24,10 +25,15 @@ class Sound
             'close' => :close,
             'keepon' => :keepon,
             'visu' => :visu,
-            'get' => :get
+            'get' => :get,
+            'true' => :true,
+            'false' => :false
         }
 
-        read = File.read(file)
+        # 変数　@variable[変数] = 数値
+        @variable = {}
+
+        read = File.read(@file)
         @scanner = StringScanner.new(read)
         p sentences() # Sound
     end
@@ -48,7 +54,6 @@ class Sound
         token = get_token()
         while token == :mul or token == :div
             result = [token, result, factor()]
-            p result
             token = get_token()
         end
 
@@ -58,12 +63,16 @@ class Sound
 
     def factor()
         token = get_token()
-        if token.is_a?(Numeric) # 数字だったら
+        if token.is_a?(Numeric) then# 数字だったら
             result = token
-        elsif token == :left_parn #（ だったら
+        elsif token == :get then
+            result = token
+        elsif token.is_a?(String) then# 数字だったら
+            result = [:variable, token]
+        elsif token == :left_parn then#（ だったら
             result = expression()
             token = get_token() # 閉じカッコを取り除く(使用しない)
-            if token != :right_parn # ) なかったら
+            if token != :right_parn then# ) なかったら
                 raise Exception, "構文エラー"
             else
                 # p token
@@ -130,7 +139,7 @@ class Sound
 
     # tokenを受け取り、ソースコードの先頭にそれを押し戻す。
     def unget_token()
-        if !(@scanner.eos?)
+        if !(@scanner.eos?) then
             @scanner.unscan
         end
     end
@@ -150,15 +159,13 @@ class Sound
 
     def sentence()
         # 代入文、if文、while文、print文
-        if token = para()
+        if token = para() then
             return token
-        elsif token = keepon()
+        elsif token = keepon() then
             return token
-        elsif token = visu()
+        elsif token = visu() then
             return token
-        elsif token = get()
-            return token
-        elsif token = assignment()
+        elsif token = assignment() then
             return token
         end
     end
@@ -191,9 +198,11 @@ class Sound
         result = [:visu]
 
         token = get_token()
-        if token.instance_of?(String)
+        if token == :get then
+            result << token
+        elsif token.instance_of?(String) then
             result << [:variable, token]
-        elsif token.instance_of?(Float)
+        elsif token.instance_of?(Numeric) then
             unget_token()
             unless token = expression()
                 raise Exception, "visu_式がない"
@@ -203,21 +212,6 @@ class Sound
             raise Exception, "visu_変数または数値がない"
         end
 
-        return result
-    end
-    
-    # 入力
-    def get()
-        unless get_token() == :get
-            unget_token()
-            return nil
-        end
-        result = [:get]
-        unless get = get_token()
-            raise Exception, "get_入力がない、または、英数字でない"
-            # 変数は英字のみだが、「a1」「aa1a」のようなものだと「a」「aa」と判断される。エラー実装できていない。
-        end
-        result << get
         return result
     end
 
@@ -273,7 +267,6 @@ class Sound
             raise Exception, "para_条件式がない"
         end
         result << token
-
         # then
         unless get_token() == :open
             raise Exception, "para_openがない"
@@ -291,8 +284,8 @@ class Sound
         end
 
         # else
-        result2 = [:real]
-        if get_token() == :real
+        if get_token() == :real then
+            result2 = [:real]
             # 式を取り出す
             unless token = sentence()
                 raise Exception, "para_real_文がない"
@@ -312,7 +305,7 @@ class Sound
             # closeの後に改行するか、別の文が続かないとエラーになってしまう。
         end
         
-        result = result + [result2]
+        result = result + [result2] if result2
         return result
     end
 
@@ -324,6 +317,7 @@ class Sound
         end
         result << [:variable, token]
 
+        is_d_equal = false
         token = get_token()
         case token
         when :small, :big
@@ -337,6 +331,7 @@ class Sound
                 result << [:operator, token]
             end
         when :equal
+            is_d_equal = true
             token2 = get_token()
             if token2 == :equal then
                 token = :d_equal
@@ -349,9 +344,15 @@ class Sound
         end
 
         token = get_token()
-        if token.instance_of?(String)
+        if token == :true then
+            raise Exception, "#{@file}プログラムミス" if !is_d_equal
+            result << token
+        elsif token == :false then
+            raise Exception, "#{@file}プログラムミス" if !is_d_equal
+            result << token
+        elsif token.instance_of?(String) then
             result << [:variable, token]
-        elsif token.instance_of?(Float)
+        elsif token.instance_of?(Numeric) then
             unget_token()
             unless token = expression()
                 raise Exception, "conditions_式がない"
@@ -363,6 +364,22 @@ class Sound
 
         return result
     end
+
+    # 入力
+    # def get()
+    #     unless get_token() == :get
+    #         unget_token()
+    #         return nil
+    #     end
+    #     result = [:get]
+    #     # これは実装時に考えること。
+    #     # unless get = get_token()
+    #     #     raise Exception, "get_入力がない、または、英数字でない"
+    #     #     # 変数は英字のみだが、「a1」「aa1a」のようなものだと「a」「aa」と判断される。エラー実装できていない。
+    #     # end
+    #     # result << get
+    #     return result
+    # end
 end
 
 
