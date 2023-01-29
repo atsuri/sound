@@ -4,7 +4,6 @@ class Sound
         unless @file = ARGV[0]
             raise Exception, "ファイルがありません。"
         end
-
         # 予約後
         @keywords = {
             '+' => :add,
@@ -32,96 +31,45 @@ class Sound
 
         # 変数　@variable[変数] = 数値
         @variable = {}
-
+        # ファイル読み込み
         read = File.read(@file)
         @scanner = StringScanner.new(read)
-        p sentences() # Sound
+
+        # p sentences() # blockにするまで
+        p execution(sentences()) # 実装
     end
 
-    def expression()
-        result = term()
-        token = get_token()
-        while token == :add or token == :sub
-            result = [token, result, term()]
-            token = get_token()
+    # [:block, 〜]の形にする。
+    # 文列
+    def sentences()
+        unless s = sentence()
+            raise Exception, "あるべき文が見つからない"
         end
-        unget_token()
+        
+        result = [:block, s]
+        while s = sentence()
+            result << s
+        end
+        # p result
         return result
     end
 
-    def term()
-        result = factor()
-        token = get_token()
-        while token == :mul or token == :div
-            result = [token, result, factor()]
-            token = get_token()
+    def sentence()
+        # 代入文、if文、while文、print文
+        if token = para() then
+            return token
+        elsif token = keepon() then
+            return token
+        elsif token = visu() then
+            return token
+        elsif token = assignment() then
+            return token
         end
-
-        unget_token()
-        return result
-    end
-
-    def factor()
-        token = get_token()
-        if token.is_a?(Numeric) then# 数字だったら
-            result = token
-        elsif token == :get then
-            result = token
-        elsif token.is_a?(String) then# 数字だったら
-            result = [:variable, token]
-        elsif token == :left_parn then#（ だったら
-            result = expression()
-            token = get_token() # 閉じカッコを取り除く(使用しない)
-            if token != :right_parn then# ) なかったら
-                raise Exception, "構文エラー"
-            else
-                # p token
-            end
-        end
-
-        return result
-    end
-
-    def eval(exp)
-        if exp.instance_of?(Array)
-            case exp[0]
-            when :add
-                begin
-                    return eval(exp[1]) + eval(exp[2])
-                rescue => e
-                    puts "加算でエラー：#{e.message}"
-                end
-            when :sub
-                begin
-                    return eval(exp[1]) - eval(exp[2])
-                rescue => e
-                    puts "減算でエラー：#{e.message}"
-                end
-            when :mul
-                begin
-                    return eval(exp[1]) * eval(exp[2])
-                rescue => e
-                    puts "乗算でエラー：#{e.message}"
-                end
-            when :div
-                begin
-                    return eval(exp[1]) / eval(exp[2])
-                rescue => e
-                    puts "除算_でエラー：#{e.message}"
-                end
-            end
-        else
-            return exp
-        end
-    end
-
-    def parse()
-        expression()
     end
 
     # ソースコードの先頭から、次のtokenを一つ切り出して返す。
     def get_token()
-        if scan = @scanner.scan(/\A*([0-9.]+)/) then #数値だったら
+        if scan = @scanner.scan(/\A\d+(?:\.\d+)?/) then #数値だったら
             # p "数値：#{scan}"
             return scan.to_f
         elsif scan = @scanner.scan(/\A*(#{@keywords.keys.map{|t| Regexp.escape(t)}.join('|')})/) then # 予約語だったら
@@ -143,112 +91,48 @@ class Sound
             @scanner.unscan
         end
     end
-
-    # 文列
-    def sentences()
-        unless s = sentence()
-            raise Exception, "あるべき文が見つからない"
+    
+    # 式
+    def expression()
+        result = term()
+        token = get_token()
+        while token == :add or token == :sub
+            result = [token, result, term()]
+            token = get_token()
         end
-        
-        result = [:block, s]
-        while s = sentence()
-            result << s
-        end
+        unget_token()
+        # p result
         return result
     end
 
-    def sentence()
-        # 代入文、if文、while文、print文
-        if token = para() then
-            return token
-        elsif token = keepon() then
-            return token
-        elsif token = visu() then
-            return token
-        elsif token = assignment() then
-            return token
-        end
-    end
-
-    def assignment()
-        result = [:assignment]
+    def term()
+        result = factor()
         token = get_token()
-        unless token.instance_of?(String)
-            unget_token()
-            return nil
+        while token == :mul or token == :div
+            result = [token, result, factor()]
+            token = get_token()
         end
 
-        result << [:variable, token]
-        unless get_token() == :equal
-            raise Exception, "イコールがない"
-        end
-        unless token = expression()
-            raise Exception, "式がない"
-        end
-        result << token
+        unget_token()
         return result
     end
 
-    # 出力
-    def visu()
-        unless get_token() == :visu
-            unget_token()
-            return nil
-        end
-        result = [:visu]
-
+    def factor()
         token = get_token()
-        if token == :get then
-            result << token
-        elsif token.instance_of?(String) then
-            result << [:variable, token]
-        elsif token.instance_of?(Numeric) then
-            unget_token()
-            unless token = expression()
-                raise Exception, "visu_式がない"
+        if token.is_a?(Float) then# 数字だったら
+            result = token
+        elsif token == :get then
+            result = token
+        elsif token.is_a?(String) then# 数字だったら
+            result = [:variable, token]
+        elsif token == :left_parn then#（ だったら
+            result = expression()
+            token = get_token() # 閉じカッコを取り除く(使用しない)
+            if token != :right_parn then# ) なかったら
+                raise Exception, "構文エラー"
+            else
+                # p token
             end
-            result << token
-        else
-            raise Exception, "visu_変数または数値がない"
-        end
-
-        return result
-    end
-
-    # for文
-    def keepon
-        # for
-        unless get_token() == :keepon
-            unget_token()
-            return nil
-        end
-        result = [:keepon]
-
-        # 条件式
-        unless token = conditions()
-            raise Exception, "keepon_条件式がない"
-        end
-        result << token
-
-        # do
-        unless get_token() == :open
-            raise Exception, "keepon_openがない"
-        end
-
-        # 式を取り出す
-        unless token = sentence()
-            raise Exception, "keepon_文がない"
-        end
-        result << token
-        # 二文以上あった時
-        while token = sentence() do
-            result << token
-        end
-
-        # end
-        unless get_token() == :close
-            raise Exception, "keepon_closeがない"
-            # closeの後に改行するか、別の文が続かないとエラーになってしまう。
         end
 
         return result
@@ -306,9 +190,11 @@ class Sound
         end
         
         result = result + [result2] if result2
+        # p result
         return result
     end
 
+    # 演算子 <,>,==,<=,>= と 真偽値 true,false
     def conditions()
         result = [:conditions]
         token = get_token() #変数
@@ -352,7 +238,7 @@ class Sound
             result << token
         elsif token.instance_of?(String) then
             result << [:variable, token]
-        elsif token.instance_of?(Numeric) then
+        elsif token.instance_of?(Float) then
             unget_token()
             unless token = expression()
                 raise Exception, "conditions_式がない"
@@ -362,24 +248,384 @@ class Sound
             raise Exception, "conditions_変数または数値がない"
         end
 
+        # p result
         return result
     end
 
+    # while文
+    def keepon
+        # while
+        unless get_token() == :keepon
+            unget_token()
+            return nil
+        end
+        result = [:keepon]
+
+        # 条件式
+        unless token = conditions()
+            raise Exception, "keepon_条件式がない"
+        end
+        result << token
+
+        # do
+        unless get_token() == :open
+            raise Exception, "keepon_openがない"
+        end
+
+        # 式を取り出す
+        unless token = sentence()
+            raise Exception, "keepon_文がない"
+        end
+        result << token
+        # 二文以上あった時
+        while token = sentence() do
+            result << token
+        end
+
+        # end
+        unless get_token() == :close
+            raise Exception, "keepon_closeがない"
+            # closeの後に改行するか、別の文が続かないとエラーになってしまう。
+        end
+
+        # p result
+        return result
+    end
+
+    # print文
+    def visu()
+        unless get_token() == :visu
+            unget_token()
+            return nil
+        end
+        result = [:visu]
+
+        token = get_token()
+        if token == :get then
+            result << token
+        elsif token.instance_of?(String) then
+            result << [:variable, token]
+        elsif token.instance_of?(Float) then
+            unget_token()
+            unless token = expression()
+                raise Exception, "visu_式がない"
+            end
+            result << token
+        else
+            raise Exception, "visu_変数または数値がない"
+        end
+
+        # p result
+        return result
+    end
+
+    # 代入文
+    def assignment()
+        result = [:assignment]
+        token = get_token()
+        unless token.instance_of?(String)
+            unget_token()
+            return nil
+        end
+
+        result << [:variable, token]
+        unless get_token() == :equal
+            raise Exception, "イコールがない"
+        end
+        unless token = expression()
+            raise Exception, "式がない"
+        end
+        result << token
+        # p result
+        return result
+    end
+
+    #####################################
+    #####################################
+
+    # 実装 blockになった後の処理
+    def execution(block)
+        # p block
+        if block.instance_of?(Array) then
+            length = block.length
+            for i in 1...length do
+                blo = block[i]
+                # p blo #ブロック全体で、1つ実行
+                case blo[0]
+                when :para
+                    #条件式（:conditions）blo[1][0] lengthは4
+                    _para(blo)
+                when :keepon
+                    #条件式（:conditions）
+                    _keepon(blo)
+                when :visu
+                    #変数（:variable）、数値（Float）、入力（:get）
+                    _visu(blo)
+                when :assignment
+                    #次に来るのは、変数（:variable）
+                    #イコールの右は、式（:add,:sub,:mul,:div）or 変数（:variable）or 数値（Float）or 入力（:get）
+                    _assignment(blo)
+                else
+                        
+                end
+            end
+        end
+    end
+
     # 入力
-    # def get()
-    #     unless get_token() == :get
-    #         unget_token()
-    #         return nil
-    #     end
-    #     result = [:get]
-    #     # これは実装時に考えること。
-    #     # unless get = get_token()
-    #     #     raise Exception, "get_入力がない、または、英数字でない"
-    #     #     # 変数は英字のみだが、「a1」「aa1a」のようなものだと「a」「aa」と判断される。エラー実装できていない。
-    #     # end
-    #     # result << get
-    #     return result
-    # end
+    def _get()
+        loop do
+            p "入力受付中.."
+            get = STDIN.gets #数値か英字が入ってる
+            @scanner = StringScanner.new(get)
+            if scan = @scanner.scan(/\A\d+(\.\d+)?/) then #数値だったら
+                get = scan.to_f
+            elsif scan = @scanner.scan(/\A[a-zA-Z]+/) then #英字だったら（変数名）
+                get = scan
+            else
+                # raise Exception, "入力は半角英数字にしてください。"
+                p "入力は半角英数字にしてください。"
+            end
+
+            return get if get != nil
+        end
+    end
+
+    # 出力
+    def _visu(blo)
+        # p "visu"
+        if blo[1].is_a?(Float) then
+            puts blo[1]
+        elsif  blo[1] == :get then
+            get = _get()
+        elsif blo[1][0] == :variable then
+            if @variable[blo[1][1]] then
+                puts @variable[blo[1][1]]
+            else
+                puts blo[1][1]
+            end
+        end
+    end
+
+    def _assignment(blo)
+        # p "assignment"
+        if blo[1][0] == :variable then
+            if blo[2].is_a?(Float) then
+                @variable[blo[1][1][0]] = blo[2]
+            elsif blo[2] == :get then
+                get = _get()#数値か英字が入ってる
+                if get.is_a?(String) then
+                    get = @variable[get] if @variable.key?(get)
+                end
+                @variable[blo[1][1][0]] = get
+            elsif blo[2][0] == :variable then
+                var = @variable[blo[2][1]]
+                @variable[blo[1][1][0]] = var
+            elsif blo[2][0] == :add || blo[2][0] == :sub || blo[2][0] == :mul || blo[2][0] == :div then
+                @variable[blo[1][1][0]] = eval(blo[2])
+            end
+        end
+        # p @variable #変数
+    end
+
+    def _para(blo)
+        # p "para"
+        # p blo
+        len = blo.length
+        if blo[1][0] == :conditions then
+            var = @variable[blo[1][1][1]] if blo[1][1][0] == :variable
+
+            if blo[1][3].is_a?(Float) then
+                value = blo[1][3] 
+            elsif blo[1][3][0] == :variable then
+                value = @variable[blo[1][3][1]] 
+            end
+            
+            do_para = false
+            if blo[1][2][0] == :operator then
+                case blo[1][2][1]
+                when :d_equal
+                    do_para = true if var == value
+                when :s_equal
+                    do_para = true if var <= value
+                when :b_equal
+                    do_para = true if var >= value
+                when :small
+                    do_para = true if var < value
+                when :big
+                    do_para = true if var > value
+                end
+            end
+
+            k=0
+            if do_para then
+                loop do
+                    break if len == 2+k
+                    if blo[2+k] == :get then
+                        _get()
+                    elsif blo[2+k][0] == :real then
+                        break
+                    elsif blo[2+k][0] == :visu then
+                        _visu(blo[2+k])
+                    elsif blo[2+k][0] == :assignment then
+                        _assignment(blo[2+k])
+                    elsif blo[2+k][0] == :keepon then
+                        _keepon(blo[2+k])
+                    elsif blo[2+k][0] == :para then
+                        _para(blo[2+k])
+                    end
+                    k=k+1
+                end
+            else
+                j=0
+                loop do
+                    break if len == 2+k
+                    if blo[2+k].include?(:real) then
+                        j=j+1
+                        break
+                    end
+                    k=k+1
+                end
+
+                real_len = blo[2+k].length if !blo[2+k].nil?
+                r=0
+                if !real_len == nil then
+                    loop do
+                        break if r == real_len-1
+                        if blo[2+k][j] == :get then
+                            _get()
+                        elsif blo[2+k][j][0] == :real then
+                            break
+                        elsif blo[2+k][j][0] == :visu then
+                            _visu(blo[2+k][j])
+                        elsif blo[2+k][j][0] == :assignment then
+                            _assignment(blo[2+k][j])
+                        elsif blo[2+k][j][0] == :keepon then
+                            _keepon(blo[2+k][j])
+                        elsif blo[2+k][j][0] == :para then
+                            _para(blo[2+k][j])
+                        end
+                        r=r+1
+                    end
+                end
+            end
+        end
+    end
+
+    def _keepon(blo)
+        # p "keepon"
+        len = blo.length
+        if blo[1][0] == :conditions then
+            if blo[1][3].is_a?(Float) then
+                value = blo[1][3]
+            elsif blo[1][3][0] == :variable then
+                value = @variable[blo[1][3][1]] 
+            end
+            
+            loop do
+                var = @variable[blo[1][1][1]] if blo[1][1][0] == :variable
+
+                do_keepon = false
+                if blo[1][2][0] == :operator then
+                    case blo[1][2][1]
+                    when :d_equal
+                        do_keepon = true if var == value
+                    when :s_equal
+                        do_keepon = true if var <= value
+                    when :b_equal
+                        do_keepon = true if var >= value
+                    when :small
+                        do_keepon = true if var < value
+                    when :big
+                        do_keepon = true if var > value
+                    end
+                end
+
+                break if do_keepon == false
+                k=0
+                loop do
+                    break if len == k+2
+
+                    if blo[2+k] == :get then
+                            _get()
+                    elsif blo[2+k][0] == :visu then
+                        _visu(blo[2+k])
+                    elsif blo[2+k][0] == :assignment then
+                        block = blo[2+k]
+                        if block[2][0] == :add || block[2][0] == :sub || block[2][0] == :mul || block[2][0] == :div then                        
+                            if !block[2][1].is_a?(Float) then
+                                variable1 = block[2][1][1]
+                                value1 = @variable[variable1]
+                            end
+                            if !block[2][2].is_a?(Float) then
+                                variable2 = block[2][2][1]
+                                value2 = @variable[variable2]
+                            end
+                        end
+
+                        _assignment(block)
+
+                        if value1.is_a?(Float) then
+                            block[2][1] = [:variable, variable1]
+                        end
+                        if value2.is_a?(Float) then
+                            block[2][2] = [:variable, variable2]
+                        end
+
+                    elsif blo[2+k][0] == :keepon then
+                        _keepon(blo[2+k])
+                    elsif blo[2+k][0] == :para then
+                        _para(blo[2+k])
+                    end
+
+                    k=k+1
+                end
+            end
+        end
+
+    end
+
+    # 計算
+    def eval(exp)
+        if exp.instance_of?(Array) then
+            case exp[0]
+            when :add
+                begin
+                    exp[1] = @variable[exp[1][1]] if !exp[1].is_a?(Float) && exp[1].include?(:variable)
+                    exp[2] = @variable[exp[2][1]] if !exp[2].is_a?(Float) && exp[2].include?(:variable)
+                    return eval(exp[1]) + eval(exp[2])
+                rescue => e
+                    puts "加算でエラー：#{e.message}"
+                end
+            when :sub
+                begin
+                    exp[1] = @variable[exp[1][1]] if !exp[1].is_a?(Float) && exp[1].include?(:variable)
+                    exp[2] = @variable[exp[2][1]] if !exp[2].is_a?(Float) && exp[2].include?(:variable)
+                    return eval(exp[1]) - eval(exp[2])
+                rescue => e
+                    puts "減算でエラー：#{e.message}"
+                end
+            when :mul
+                begin
+                    exp[1] = @variable[exp[1][1]] if !exp[1].is_a?(Float) && exp[1].include?(:variable)
+                    exp[2] = @variable[exp[2][1]] if !exp[2].is_a?(Float) && exp[2].include?(:variable)
+                    return eval(exp[1]) * eval(exp[2])
+                rescue => e
+                    puts "乗算でエラー：#{e.message}"
+                end
+            when :div
+                begin
+                    exp[1] = @variable[exp[1][1]] if !exp[1].is_a?(Float) && exp[1].include?(:variable)
+                    exp[2] = @variable[exp[2][1]] if !exp[2].is_a?(Float) && exp[2].include?(:variable)
+                    return eval(exp[1]) / eval(exp[2])
+                rescue => e
+                    puts "除算_でエラー：#{e.message}"
+                end
+            end
+        else
+            return exp
+        end
+    end
 end
 
 
