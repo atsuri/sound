@@ -1,0 +1,31 @@
+visu MyNameIs
+name = get
+
+visu Hi
+person = name
+visu person
+
+visu LetsTellFortunes
+visu EnterNumber
+num = get
+
+VeryLucky = false
+Lucky = false
+
+para num < 5 open
+    VeryLucky = true
+real
+    Lucky = true
+close
+
+
+para VeryLucky == true open
+    visu YouAreVeryLucky
+close
+
+para Lucky == true open
+    visu YouAreLucky
+close
+
+visu Bye
+
