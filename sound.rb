@@ -121,7 +121,7 @@ class Sound
         token = get_token()
         if token.is_a?(Float) then# 数字だったら
             result = token
-        elsif token == :get then
+        elsif token == :get then# 標準入力だったら
             result = token
         elsif token.is_a?(String) then# 数字だったら
             result = [:variable, token]
@@ -167,7 +167,7 @@ class Sound
             result << token
         end
 
-        # else
+        # else　ない可能性あり
         if get_token() == :real then
             result2 = [:real]
             # 式を取り出す
@@ -332,16 +332,23 @@ class Sound
         unless get_token() == :equal
             raise Exception, "イコールがない"
         end
-        unless token = expression()
-            raise Exception, "式がない"
+
+        token = get_token()
+        if token == :true || token == :false then
+            result << token
+        else
+            unget_token()
+            unless token = expression()
+                raise Exception, "式がない"
+            end
+            result << token
         end
-        result << token
         # p result
         return result
     end
 
-    #####################################
-    #####################################
+    ###############################################################################################################
+    ###############################################################################################################
 
     # 実装 blockになった後の処理
     def execution(block)
@@ -353,20 +360,18 @@ class Sound
                 # p blo #ブロック全体で、1つ実行
                 case blo[0]
                 when :para
-                    #条件式（:conditions）blo[1][0] lengthは4
+                    #次に来るのは、条件式（:conditions）
                     _para(blo)
                 when :keepon
-                    #条件式（:conditions）
+                    #次に来るのは、条件式（:conditions）
                     _keepon(blo)
                 when :visu
-                    #変数（:variable）、数値（Float）、入力（:get）
+                    #次に来るのは、変数（:variable）or 数値（Float）or 入力（:get）
                     _visu(blo)
                 when :assignment
                     #次に来るのは、変数（:variable）
                     #イコールの右は、式（:add,:sub,:mul,:div）or 変数（:variable）or 数値（Float）or 入力（:get）
                     _assignment(blo)
-                else
-                        
                 end
             end
         end
@@ -375,16 +380,14 @@ class Sound
     # 入力
     def _get()
         loop do
-            p "入力受付中.."
             get = STDIN.gets #数値か英字が入ってる
             @scanner = StringScanner.new(get)
-            if scan = @scanner.scan(/\A\d+(\.\d+)?/) then #数値だったら
+            if scan = @scanner.scan(/\A\d+(\.\d+)?/) then #数値だったら（マイナスの数値は受け付けない）
                 get = scan.to_f
             elsif scan = @scanner.scan(/\A[a-zA-Z]+/) then #英字だったら（変数名）
                 get = scan
             else
-                # raise Exception, "入力は半角英数字にしてください。"
-                p "入力は半角英数字にしてください。"
+                p "入力は半角英数字にしてください。（単語間の空白、マイナスの数値は×）"
             end
 
             return get if get != nil
@@ -394,6 +397,7 @@ class Sound
     # 出力
     def _visu(blo)
         # p "visu"
+        # p blo
         if blo[1].is_a?(Float) then
             puts blo[1]
         elsif  blo[1] == :get then
@@ -409,20 +413,23 @@ class Sound
 
     def _assignment(blo)
         # p "assignment"
+        # p blo
         if blo[1][0] == :variable then
             if blo[2].is_a?(Float) then
-                @variable[blo[1][1][0]] = blo[2]
+                @variable[blo[1][1]] = blo[2]
             elsif blo[2] == :get then
                 get = _get()#数値か英字が入ってる
                 if get.is_a?(String) then
                     get = @variable[get] if @variable.key?(get)
                 end
-                @variable[blo[1][1][0]] = get
+                @variable[blo[1][1]] = get
+            elsif blo[2] == :true || blo[2] == :false
+                @variable[blo[1][1]] = blo[2]
             elsif blo[2][0] == :variable then
                 var = @variable[blo[2][1]]
-                @variable[blo[1][1][0]] = var
+                @variable[blo[1][1]] = var
             elsif blo[2][0] == :add || blo[2][0] == :sub || blo[2][0] == :mul || blo[2][0] == :div then
-                @variable[blo[1][1][0]] = eval(blo[2])
+                @variable[blo[1][1]] = eval(blo[2])
             end
         end
         # p @variable #変数
@@ -433,14 +440,15 @@ class Sound
         # p blo
         len = blo.length
         if blo[1][0] == :conditions then
-            var = @variable[blo[1][1][1]] if blo[1][1][0] == :variable
-
             if blo[1][3].is_a?(Float) then
                 value = blo[1][3] 
+            elsif blo[1][3] == :true || blo[1][3] == :false then
+                value = blo[1][3]
             elsif blo[1][3][0] == :variable then
-                value = @variable[blo[1][3][1]] 
+                value = @variable[blo[1][3][1]]
             end
-            
+
+            var = @variable[blo[1][1][1]] if blo[1][1][0] == :variable
             do_para = false
             if blo[1][2][0] == :operator then
                 case blo[1][2][1]
@@ -457,10 +465,12 @@ class Sound
                 end
             end
 
-            k=0
             if do_para then
+                k=0
                 loop do
                     break if len == 2+k
+                    break if blo[2+k].include?(:real)
+
                     if blo[2+k] == :get then
                         _get()
                     elsif blo[2+k][0] == :real then
@@ -477,35 +487,31 @@ class Sound
                     k=k+1
                 end
             else
-                j=0
+                k=2
+                do_real = false
                 loop do
-                    break if len == 2+k
-                    if blo[2+k].include?(:real) then
-                        j=j+1
+                    break if len == k
+                    if blo[k].include?(:real) then
+                        do_real = true
                         break
                     end
                     k=k+1
                 end
 
-                real_len = blo[2+k].length if !blo[2+k].nil?
-                r=0
-                if !real_len == nil then
-                    loop do
-                        break if r == real_len-1
-                        if blo[2+k][j] == :get then
+                if do_real then
+                    len = blo[k].length
+                    for j in 0...len do
+                        if blo[k][j] == :get then
                             _get()
-                        elsif blo[2+k][j][0] == :real then
-                            break
-                        elsif blo[2+k][j][0] == :visu then
-                            _visu(blo[2+k][j])
-                        elsif blo[2+k][j][0] == :assignment then
-                            _assignment(blo[2+k][j])
-                        elsif blo[2+k][j][0] == :keepon then
-                            _keepon(blo[2+k][j])
-                        elsif blo[2+k][j][0] == :para then
-                            _para(blo[2+k][j])
+                        elsif blo[k][j][0] == :visu then
+                            _visu(blo[k][j])
+                        elsif blo[k][j][0] == :assignment then
+                            _assignment(blo[k][j])
+                        elsif blo[k][j][0] == :keepon then
+                            _keepon(blo[k][j])
+                        elsif blo[k][j][0] == :para then
+                            _para(blo[k][j])
                         end
-                        r=r+1
                     end
                 end
             end
@@ -516,14 +522,13 @@ class Sound
         # p "keepon"
         len = blo.length
         if blo[1][0] == :conditions then
-            if blo[1][3].is_a?(Float) then
-                value = blo[1][3]
-            elsif blo[1][3][0] == :variable then
-                value = @variable[blo[1][3][1]] 
-            end
-            
             loop do
                 var = @variable[blo[1][1][1]] if blo[1][1][0] == :variable
+                if blo[1][3].is_a?(Float) then
+                    value = blo[1][3]
+                elsif blo[1][3][0] == :variable then
+                    value = @variable[blo[1][3][1]] 
+                end
 
                 do_keepon = false
                 if blo[1][2][0] == :operator then
@@ -582,7 +587,6 @@ class Sound
                 end
             end
         end
-
     end
 
     # 計算

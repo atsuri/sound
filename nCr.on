@@ -1,0 +1,33 @@
+visu nCr
+visu n
+nn = get
+
+visu r
+rr = get
+
+Numerator = 1
+j=nn-rr+1
+keepon j<=nn open
+    Numerator = Numerator * j
+    j=j+1
+close
+
+Denominator = 1
+i=2
+keepon rr>=i open
+    Denominator = Denominator * i
+    i=i+1
+close
+
+nCr = (Numerator/Denominator)
+
+
+para rr > nn open
+    visu error
+    visu r
+    visu LessThan
+    visu n
+real
+    visu AnswerIs
+    visu nCr
+close
