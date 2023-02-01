@@ -426,8 +426,11 @@ class Sound
             elsif blo[2] == :true || blo[2] == :false
                 @variable[blo[1][1]] = blo[2]
             elsif blo[2][0] == :variable then
-                var = @variable[blo[2][1]]
-                @variable[blo[1][1]] = var
+                if var = @variable[blo[2][1]] then
+                    @variable[blo[1][1]] = var
+                else
+                    @variable[blo[1][1]] = blo[2][1]
+                end
             elsif blo[2][0] == :add || blo[2][0] == :sub || blo[2][0] == :mul || blo[2][0] == :div then
                 @variable[blo[1][1]] = eval(blo[2])
             end
@@ -445,23 +448,32 @@ class Sound
             elsif blo[1][3] == :true || blo[1][3] == :false then
                 value = blo[1][3]
             elsif blo[1][3][0] == :variable then
-                value = @variable[blo[1][3][1]]
+                if @variable[blo[1][3][1]] then
+                    value = @variable[blo[1][3][1]]
+                else
+                    value = blo[1][3][1]
+                end
             end
 
             var = @variable[blo[1][1][1]] if blo[1][1][0] == :variable
             do_para = false
             if blo[1][2][0] == :operator then
-                case blo[1][2][1]
-                when :d_equal
-                    do_para = true if var == value
-                when :s_equal
-                    do_para = true if var <= value
-                when :b_equal
-                    do_para = true if var >= value
-                when :small
-                    do_para = true if var < value
-                when :big
-                    do_para = true if var > value
+                begin
+                    case blo[1][2][1]
+                    when :d_equal
+                        do_para = true if var == value
+                    when :s_equal
+                        do_para = true if var <= value
+                    when :b_equal
+                        do_para = true if var >= value
+                    when :small
+                        do_para = true if var < value
+                    when :big
+                        do_para = true if var > value
+                    end
+                rescue => e
+                    puts e.message
+                    raise Exception, "条件式_#{var}と#{value}は比較できません。"
                 end
             end
 
@@ -527,22 +539,31 @@ class Sound
                 if blo[1][3].is_a?(Float) then
                     value = blo[1][3]
                 elsif blo[1][3][0] == :variable then
-                    value = @variable[blo[1][3][1]] 
+                    if @variable[blo[1][3][1]] then
+                        value = @variable[blo[1][3][1]]
+                    else
+                        value = blo[1][3][1]
+                    end
                 end
 
                 do_keepon = false
                 if blo[1][2][0] == :operator then
-                    case blo[1][2][1]
-                    when :d_equal
-                        do_keepon = true if var == value
-                    when :s_equal
-                        do_keepon = true if var <= value
-                    when :b_equal
-                        do_keepon = true if var >= value
-                    when :small
-                        do_keepon = true if var < value
-                    when :big
-                        do_keepon = true if var > value
+                    begin
+                        case blo[1][2][1]
+                        when :d_equal
+                            do_keepon = true if var == value
+                        when :s_equal
+                            do_keepon = true if var <= value
+                        when :b_equal
+                            do_keepon = true if var >= value
+                        when :small
+                            do_keepon = true if var < value
+                        when :big
+                            do_keepon = true if var > value
+                        end
+                    rescue => e
+                        puts e.message
+                        raise Exception, "条件式_#{var}と#{value}は比較できません。"
                     end
                 end
 
@@ -595,33 +616,65 @@ class Sound
             case exp[0]
             when :add
                 begin
-                    exp[1] = @variable[exp[1][1]] if !exp[1].is_a?(Float) && exp[1].include?(:variable)
-                    exp[2] = @variable[exp[2][1]] if !exp[2].is_a?(Float) && exp[2].include?(:variable)
-                    return eval(exp[1]) + eval(exp[2])
+                    if !exp[1].is_a?(Float) && exp[1].include?(:variable) then
+                        exp1 = @variable[exp[1][1]]
+                    else
+                        exp1 = exp[1]
+                    end
+                    if !exp[2].is_a?(Float) && exp[2].include?(:variable) then
+                        exp2 = @variable[exp[2][1]]
+                    else
+                        exp2 = exp[2]
+                    end
+                    return eval(exp1) + eval(exp2)
                 rescue => e
                     puts "加算でエラー：#{e.message}"
                 end
             when :sub
                 begin
-                    exp[1] = @variable[exp[1][1]] if !exp[1].is_a?(Float) && exp[1].include?(:variable)
-                    exp[2] = @variable[exp[2][1]] if !exp[2].is_a?(Float) && exp[2].include?(:variable)
-                    return eval(exp[1]) - eval(exp[2])
+                    if !exp[1].is_a?(Float) && exp[1].include?(:variable) then
+                        exp1 = @variable[exp[1][1]]
+                    else
+                        exp1 = exp[1]
+                    end
+                    if !exp[2].is_a?(Float) && exp[2].include?(:variable) then
+                        exp2 = @variable[exp[2][1]]
+                    else
+                        exp2 = exp[2]
+                    end
+                    return eval(exp1) - eval(exp2)
                 rescue => e
                     puts "減算でエラー：#{e.message}"
                 end
             when :mul
                 begin
-                    exp[1] = @variable[exp[1][1]] if !exp[1].is_a?(Float) && exp[1].include?(:variable)
-                    exp[2] = @variable[exp[2][1]] if !exp[2].is_a?(Float) && exp[2].include?(:variable)
-                    return eval(exp[1]) * eval(exp[2])
+                    if !exp[1].is_a?(Float) && exp[1].include?(:variable) then
+                        exp1 = @variable[exp[1][1]]
+                    else
+                        exp1 = exp[1]
+                    end
+                    if !exp[2].is_a?(Float) && exp[2].include?(:variable) then
+                        exp2 = @variable[exp[2][1]]
+                    else
+                        exp2 = exp[2]
+                    end
+                    return eval(exp1) * eval(exp2)
                 rescue => e
                     puts "乗算でエラー：#{e.message}"
                 end
             when :div
                 begin
-                    exp[1] = @variable[exp[1][1]] if !exp[1].is_a?(Float) && exp[1].include?(:variable)
-                    exp[2] = @variable[exp[2][1]] if !exp[2].is_a?(Float) && exp[2].include?(:variable)
-                    return eval(exp[1]) / eval(exp[2])
+                    if !exp[1].is_a?(Float) && exp[1].include?(:variable) then
+                        exp1 = @variable[exp[1][1]]
+                    else
+                        exp1 = exp[1]
+                    end
+                    if !exp[2].is_a?(Float) && exp[2].include?(:variable) then
+                        exp2 = @variable[exp[2][1]]
+                    else
+                        exp2 = exp[2]
+                    end
+                    return eval(exp1) / eval(exp2)
                 rescue => e
                     puts "除算_でエラー：#{e.message}"
                 end
@@ -631,6 +684,5 @@ class Sound
         end
     end
 end
-
 
 Sound.new
